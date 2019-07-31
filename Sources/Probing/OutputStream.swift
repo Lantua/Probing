@@ -9,13 +9,14 @@ public protocol DataTraceOutputStream {
 }
 
 public class FileDataTraceOutputStream: DataTraceOutputStream {
-    let handle: FileHandle
-    public init(url: URL) throws {
+    let handle: FileHandle, startTime: Date
+    public init(url: URL, startTime: Date) throws {
         handle = try FileHandle(forWritingTo: url)
+        self.startTime = startTime
     }
 
     public func write(_ data: DataTrace) {
-        handle.write("\(data.id) \(data.time.timeIntervalSince1970) \(data.size)\n".data(using: .utf8)!)
+        handle.write("\(data.id) \(data.time.timeIntervalSince(startTime)) \(data.size * 8)\n".data(using: .utf8)!)
     }
 
     deinit {
@@ -62,9 +63,7 @@ public class DataTraceSummaryOutputStream: DataTraceOutputStream {
     }
 }
 
-public class StdDataTraceOutStream: DataTraceOutputStream {
-    public init() { }
-
+public struct StdDataTraceOutStream: DataTraceOutputStream {
     public func write(_ data: DataTrace) {
         print("\(data.id) \(data.time.timeIntervalSince1970) \(data.size)")
     }

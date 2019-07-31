@@ -34,10 +34,10 @@ for listener in commands {
     let backlogSize = listener.pattern.maxSize
 
     let logFile = directory.appendingPathComponent("\(listener.port).out")
-    let logger: DataTraceSummaryOutputStream
+    let logger: DataTraceOutputStream
     do {
         try "".write(to: logFile, atomically: true, encoding: .utf8)
-        logger = try DataTraceSummaryOutputStream(url: logFile, interval: 0.3, startTime: currentTime)
+        logger = try FileDataTraceOutputStream(url: logFile, startTime: currentTime)
     } catch {
         print("Could not open ", logFile.absoluteString, " for writing: ", error)
         continue
@@ -58,10 +58,10 @@ for command in commands {
     let destination = Socket.createAddress(for: command.destination, on: command.port)!
 
     let logFile = directory.appendingPathComponent("\(command.port).in")
-    var logger: DataTraceSummaryOutputStream?
+    var logger: DataTraceOutputStream?
     do {
         try "".write(to: logFile, atomically: true, encoding: .utf8)
-        logger = try DataTraceSummaryOutputStream(url: logFile, interval: 0.3, startTime: currentTime)
+        logger = try FileDataTraceOutputStream(url: logFile, startTime: currentTime)
     } catch {
         print("Could not open ", logFile.absoluteString, " for writing: ", error)
     }
@@ -76,7 +76,22 @@ for command in commands {
     }
 }
 
-client.finalize()
-for client in listeningClients {
+signal(SIGTERM, SIG_IGN)
+let sigSrc = DispatchSource.makeSignalSource(signal: SIGTERM, queue: .main)
+sigSrc.setEventHandler {
+    client.close()
+    for client in listeningClients {
+        client.close()
+    }
+
     client.finalize()
+    for client in listeningClients {
+        client.finalize()
+    }
+
+    listeningClients = []
+    exit(0)
 }
+sigSrc.resume()
+
+dispatchMain()

@@ -19,7 +19,7 @@ public class UDPClient {
     }
 
     @available(OSX 10.12, *)
-    public func send<S>(pattern: S, to destination: Socket.Address, startTime: Date, duration: Double, packetSize: Int, maxBacklogSize: Int, logger: (DataTraceOutputStream & AnyObject)?) where S: Sequence, S.Element == CommandPattern.Element {
+    public func send<S>(pattern: S, to destination: Socket.Address, startTime: Date, duration: Double, packetSize: Int, maxBacklogSize: Int, logger: DataTraceOutputStream?) where S: Sequence, S.Element == CommandPattern.Element {
         let thread = Thread { [socket = self.socket, group = self.runningGroup] in
             group.enter()
             defer { group.leave() }
@@ -33,9 +33,8 @@ public class UDPClient {
             var tag: Tag = 0
 
             for (time, size) in pattern {
-                guard !Thread.current.isCancelled,
-                    duration > time else {
-                        break
+                guard duration > time else {
+                    break
                 }
 
                 for (tagOffset, startIndex) in stride(from: 0, to: size, by: packetSize).enumerated() {
@@ -43,6 +42,10 @@ public class UDPClient {
                 }
 
                 Thread.sleep(until: startTime + time)
+                guard !Thread.current.isCancelled else {
+                    break
+                }
+
                 for startIndex in stride(from: 0, to: size, by: packetSize) {
                     let chunkSize = max(0, min(packetSize, size - startIndex) - 42)
                     do {
@@ -60,6 +63,7 @@ public class UDPClient {
                     tag += 1
                 }
             }
+            logger?.write(.init(id: -1, time: Date(), size: 0))
         }
         thread.start()
 
@@ -67,7 +71,7 @@ public class UDPClient {
     }
 
     @available(OSX 10.12, *)
-    func listen(on port: Int, packetSize: Int, maxBacklogSize: Int, logger: (DataTraceOutputStream & AnyObject)) throws {
+    func listen(on port: Int, packetSize: Int, maxBacklogSize: Int, logger: DataTraceOutputStream) throws {
         var logger = logger
 
         try socket.setReadTimeout(value: 1000)
@@ -87,13 +91,13 @@ public class UDPClient {
                 do {
                     size = try socket.readDatagram(into: buffer.assumingMemoryBound(to: CChar.self), bufSize: packetSize).bytesRead + 42
                 } catch {
-                    guard !Thread.current.isCancelled else {
-                        break
-                    }
                     print("Error receiving data: ", error)
                     continue
                 }
 
+                guard !Thread.current.isCancelled else {
+                    break
+                }
                 guard size != 42 else {
                     // Timeout
                     continue
@@ -102,6 +106,7 @@ public class UDPClient {
                 let currentTime = Date(), tag = buffer.load(as: Tag.self).bigEndian
                 logger.write(.init(id: tag, time: currentTime, size: size))
             }
+            logger.write(.init(id: -1, time: Date(), size: 0))
         }
         thread.start()
 
@@ -112,8 +117,6 @@ public class UDPClient {
         for thread in threads {
             thread.cancel()
         }
-
-        socket.close()
     }
     public func finalize() {
         runningGroup.wait()
@@ -121,12 +124,13 @@ public class UDPClient {
 
     deinit {
         close()
+        socket.close()
     }
 }
 
 public extension UDPClient {
     @available(OSX 10.12, *)
-    convenience init(port: Int, packetSize: Int, backlogSize: Int, logger: (DataTraceOutputStream & AnyObject)) throws {
+    convenience init(port: Int, packetSize: Int, backlogSize: Int, logger: DataTraceOutputStream) throws {
         try self.init()
         
         try listen(on: port, packetSize: packetSize, maxBacklogSize: backlogSize, logger: logger)
