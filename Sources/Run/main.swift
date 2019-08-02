@@ -13,7 +13,9 @@ let commandURL = URL(fileURLWithPath: commandPath, isDirectory: false)
 let outputURL = URL(fileURLWithPath: outputPath, isDirectory: false)
 
 let baseName = commandURL.deletingPathExtension().lastPathComponent
-let name = "\(baseName)-\(id)"
+let name = baseName.withCString {
+    String(format: "%s-%03d", $0, id)
+}
 
 let existed = FileManager.default.fileExists(atPath: outputPath)
 if !existed {
