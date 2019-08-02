@@ -24,6 +24,39 @@ public class FileDataTraceOutputStream: DataTraceOutputStream {
     }
 }
 
+public class StatsDataTraceOutputStream: DataTraceOutputStream {
+    let startTime: Date, interval: Double
+    var sizes: [Int] = []
+
+    public init(startTime: Date, interval: Double = 0.2) {
+        self.startTime = startTime
+        self.interval = interval
+    }
+
+    public func write(_ data: DataTrace) {
+        let block = max(Int(data.time.timeIntervalSince(startTime) / interval), 0)
+        if sizes.count <= block {
+            sizes.append(contentsOf: repeatElement(0, count: block + 1 - sizes.count))
+        }
+        sizes[block] += data.size
+    }
+
+    public func computeStats() -> (rate: Double, cv: Double) {
+        let rates = sizes.dropLast().map { Double($0) * 8 / interval }
+
+        guard !rates.isEmpty else {
+            return (0, 0)
+        }
+
+        let mean = rates.reduce(0, +) / Double(rates.count)
+        let variance = rates.map { ($0 - mean) * ($0 - mean) }.reduce(0, +) / Double(rates.count)
+
+        let cv = sqrt(variance) / mean
+
+        return (mean, cv)
+    }
+}
+
 public class DataTraceSummaryOutputStream: DataTraceOutputStream {
     let handle: FileHandle, interval: Double
 
