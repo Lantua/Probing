@@ -1,20 +1,17 @@
 import Foundation
+import LNTCSVCoder
 
-typealias Tag = Int32
+typealias Tag = Int
 
 public struct CommandPattern {
     public typealias Element = (time: TimeInterval, size: Int)
 
     public static func custom(url: URL) throws -> Array<Element> {
-        return try String(contentsOf: url).components(separatedBy: .newlines).compactMap {
-            guard !$0.isEmpty else {
-                return nil
-            }
-
-            let components = $0.components(separatedBy: .whitespaces)
-            assert(components.count == 3)
-            return (time: TimeInterval(components[1])!, size: Int(components[2])!)
+        struct Row: Codable {
+            var time: TimeInterval, size: Int
         }
+        let string = try String(contentsOf: url)
+        return try CSVDecoder().decode(Row.self, from: string).map { ($0.time, $0.size) }
     }
 
     public struct PoissonIterator: IteratorProtocol {
@@ -35,8 +32,8 @@ public struct CommandPattern {
         }
     }
 
-    public static func cbr(rate: Double, totalTime: Double = .infinity, size: Int) -> LazyMapSequence<StrideTo<Double>, Element> {
+    public static func cbr(rate: Double, size: Int) -> LazyMapSequence<StrideTo<Double>, Element> {
         let size = size, interval = Double(size) / rate
-        return stride(from: 0, to: totalTime, by: interval).lazy.map { ($0, size) }
+        return stride(from: 0, to: .infinity, by: interval).lazy.map { ($0, size) }
     }
 }

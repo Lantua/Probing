@@ -8,15 +8,16 @@
 import Foundation
 import Probing
 
+typealias Command = [String: [Int: SendPattern]]
+
 struct SendPattern: Codable {
     enum PatternType: String, Codable {
         case cbr, poisson, file
     }
     var type: PatternType
-    var rate: Double?
-    var maxSize: Int
-    var url: URL?
-    var startTime: TimeInterval, duration: Double?
+    var rate: Double?, url: URL?
+    var packetSize, maxSize: Int
+    var startTime: TimeInterval, endTime: TimeInterval?
 
     func getSequence() throws -> AnySequence<CommandPattern.Element> {
         switch type {
@@ -27,14 +28,6 @@ struct SendPattern: Codable {
     }
 }
 
-struct Command: Codable {
-    var destination: String
-    var port: Int
-
-    var pattern: SendPattern
-    var packetSize: Int
-}
-
 struct Stats: Codable {
     var name: String, port: Int, inputCV, outputCV, input, output: Double?
 
@@ -43,15 +36,15 @@ struct Stats: Codable {
         self.port = port
     }
 
-    mutating func set(input: Double, inputCV: Double) {
+    mutating func set(input: Double, cv: Double) {
         assert(self.input == nil)
         self.input = input
-        self.inputCV = inputCV
+        self.inputCV = cv
     }
 
-    mutating func set(output: Double, outputCV: Double) {
+    mutating func set(output: Double, cv: Double) {
         assert(self.output == nil)
         self.output = output
-        self.outputCV = outputCV
+        self.outputCV = cv
     }
 }
