@@ -26,12 +26,27 @@ public class FileDataTraceOutputStream: DataTraceOutputStream {
     }
 }
 
+public struct PrintOutputStream: DataTraceOutputStream {
+    let prefix: String, startTime: Date
+
+    public init(prefix: String, startTime: Date) {
+        self.prefix = prefix
+        self.startTime = startTime
+    }
+
+    public func write(_ data: DataTrace) {
+        print("\(prefix) \(data.id) \(data.time.timeIntervalSince(startTime)) \(data.size * 8)")
+    }
+
+    public func finalize() { }
+}
+
 public class StatsDataTraceOutputStream: DataTraceOutputStream {
     let startTime: Date, interval: Double
     var sizes: [Int] = []
-    var callback: (Double, Double) -> ()
+    var callback: ([Int], Double) -> ()
 
-    public init(startTime: Date, interval: Double = 0.2, callback: @escaping (Double, Double) -> ()) {
+    public init(startTime: Date, interval: Double = 0.2, callback: @escaping ([Int], Double) -> ()) {
         self.startTime = startTime
         self.interval = interval
         self.callback = callback
@@ -46,19 +61,7 @@ public class StatsDataTraceOutputStream: DataTraceOutputStream {
     }
 
     public func finalize() {
-        var rate = 0.0, cv = 0.0
-        defer { callback(rate, cv) }
-
-        let rates = sizes.dropLast().map { Double($0) * 8 / interval }
-        guard !rates.isEmpty else {
-            return 
-        }
-
-        let mean = rates.reduce(0, +) / Double(rates.count)
-        let variance = rates.map { ($0 - mean) * ($0 - mean) }.reduce(0, +) / Double(rates.count)
-
-        rate = mean
-        cv = sqrt(variance) / mean
+        callback(sizes, interval)
     }
 }
 

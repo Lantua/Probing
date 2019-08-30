@@ -19,6 +19,8 @@ struct SendPattern: Codable {
     var packetSize, maxSize: Int
     var startTime: TimeInterval, endTime: TimeInterval?
 
+    var listeningPort: Int?
+
     func getSequence() throws -> AnySequence<CommandPattern.Element> {
         switch type {
         case .cbr: return AnySequence(CommandPattern.cbr(rate: rate! / 8, size: maxSize))

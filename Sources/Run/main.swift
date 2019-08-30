@@ -20,6 +20,22 @@ extension FileHandle: TextOutputStream {
     }
 }
 
+func computeRateCV(sizes: [Int], interval: Double) -> (rate: Double, cv: Double) {
+    var rate = 0.0, cv = 0.0
+
+    let rates = sizes.dropLast().map { Double($0) * 8 / interval }
+    guard !rates.isEmpty else {
+        return (0, 0)
+    }
+
+    let mean = rates.reduce(0, +) / Double(rates.count)
+    let variance = rates.map { ($0 - mean) * ($0 - mean) }.reduce(0, +) / Double(rates.count)
+
+    rate = mean
+    cv = sqrt(variance) / mean
+    return (rate, cv)
+}
+
 let encoder: CSVEncoder
 if FileManager.default.fileExists(atPath: outputURL.path) {
     encoder = CSVEncoder(options: .omitHeader)
@@ -53,14 +69,17 @@ do {
     for (port, pattern) in command["127.0.0.1"] ?? [:] {
         let packetSize = pattern.packetSize
         let backlogSize = pattern.maxSize
-        let logger = StatsDataTraceOutputStream(startTime: currentTime) { rate, cv in
+        let listeningPort = pattern.listeningPort ?? port
+        let logger = StatsDataTraceOutputStream(startTime: currentTime) { sizes, interval in
+            let (rate, cv) = computeRateCV(sizes: sizes, interval: interval)
             queue.sync {
+                //sizes.dropLast().forEach { print("RECV \(port) \(size)") }
                 stats[port, default: .init(name: name, port: port)].set(output: rate, cv: cv)
             }
         }
 
         do {
-            let thread = try UDPClient.listen(on: port, packetSize: packetSize, maxBacklogSize: backlogSize, group: runningGroup, logger: logger)
+            let thread = try UDPClient.listen(on: listeningPort, packetSize: packetSize, maxBacklogSize: backlogSize, group: runningGroup, logger: logger)
             threads.append(thread)
         } catch {
             print("Could not open listening Client at port ", port, ": ", error)
@@ -77,12 +96,14 @@ for (host, command) in command {
         let address = Socket.createAddress(for: host, on: Int32(port))!
 
         let duration = (currentTime + pattern.startTime)..<(currentTime + (pattern.endTime ?? .infinity))
- 
-        let logger = StatsDataTraceOutputStream(startTime: currentTime) { rate, cv in
+        let logger = StatsDataTraceOutputStream(startTime: currentTime) { sizes, interval in
+            let (rate, cv) = computeRateCV(sizes: sizes, interval: interval)
             queue.sync {
+                //sizes.dropLast().forEach { print("RECV \(port) \(size)") }
                 stats[port, default: .init(name: name, port: port)].set(input: rate, cv: cv)
             }
         }
+
         let thread = try sender.send(pattern: pattern.getSequence(), to: address, duration: duration, packetSize: packetSize, maxBacklogSize: backlogSize, group: runningGroup, logger: logger)
         threads.append(thread)
     }

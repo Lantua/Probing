@@ -8,28 +8,24 @@
 import Foundation
 import Probing
 
+typealias Command = [String: [Int: SendPattern]]
+
 struct SendPattern: Codable {
-    var type: String
-    var rate: Double?
-    var maxSize: Int
-    var url: URL?
-    var startTime: TimeInterval, duration: Double?
+    enum PatternType: String, Codable {
+        case cbr, poisson, file
+    }
+    var type: PatternType
+    var rate: Double?, url: URL?
+    var packetSize, maxSize: Int
+    var startTime: TimeInterval, endTime: TimeInterval?
+
+    var listeningPort: Int?
 
     func getSequence() throws -> AnySequence<CommandPattern.Element> {
         switch type {
-        case "cbr": return AnySequence(CommandPattern.cbr(rate: rate! / 8, size: maxSize))
-        case "poisson": return AnySequence(CommandPattern.poisson(rate: rate! / 8, size: maxSize))
-        case "file": return try AnySequence(CommandPattern.custom(url: url!))
-        default: fatalError("Unknown send pattern \(type)")
+        case .cbr: return AnySequence(CommandPattern.cbr(rate: rate! / 8, size: maxSize))
+        case .poisson: return AnySequence(CommandPattern.poisson(rate: rate! / 8, size: maxSize))
+        case .file: return try AnySequence(CommandPattern.custom(url: url!))
         }
     }
 }
-
-struct Command: Codable {
-    var destination: String
-    var port: Int32
-
-    var pattern: SendPattern
-    var packetSize: Int
-}
-
