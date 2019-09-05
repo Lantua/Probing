@@ -3,12 +3,16 @@ import Probing
 import Foundation
 import LNTCSVCoder
 
-guard let commandURL = CommandLine.arguments.dropFirst().first.map(URL.init(fileURLWithPath:)),
-    let outputURL = CommandLine.arguments.dropFirst(2).first.map(URL.init(fileURLWithPath:)),
-    let id = CommandLine.arguments.dropFirst(3).first.map(Int.init(_:)) as? Int else {
-    print("must supply file path as first argument")
+guard CommandLine.arguments.indices.contains(4),
+    let id = Int(CommandLine.arguments[3]),
+    let totalDuration = Double(CommandLine.arguments[4]) else {
+    print("<Command URL> <Output URL> <ID> <Duration>")
     exit(-1)
 }
+
+let commandURL = URL(fileURLWithPath: CommandLine.arguments[1])
+let outputURL = URL(fileURLWithPath: CommandLine.arguments[2])
+
 let baseName = commandURL.deletingPathExtension().lastPathComponent
 let name = baseName.withCString {
     String(format: "%s-%03d", $0, id)
@@ -73,7 +77,7 @@ do {
         let logger = StatsDataTraceOutputStream(startTime: currentTime) { sizes, interval in
             let (rate, cv) = computeRateCV(sizes: sizes, interval: interval)
             queue.sync {
-                //sizes.dropLast().forEach { print("RECV \(port) \(size)") }
+                //print("RECV \(port)"); sizes.enumerated().forEach { print("\($0.offset), \($0.element)") }
                 stats[port, default: .init(name: name, port: port)].set(output: rate, cv: cv)
             }
         }
@@ -99,7 +103,7 @@ for (host, command) in command {
         let logger = StatsDataTraceOutputStream(startTime: currentTime) { sizes, interval in
             let (rate, cv) = computeRateCV(sizes: sizes, interval: interval)
             queue.sync {
-                //sizes.dropLast().forEach { print("RECV \(port) \(size)") }
+                //print("SENT \(port)"); sizes.enumerated().forEach { print("\($0.offset), \($0.element)") }
                 stats[port, default: .init(name: name, port: port)].set(input: rate, cv: cv)
             }
         }
@@ -109,9 +113,8 @@ for (host, command) in command {
     }
 }
 
-signal(SIGTERM, SIG_IGN)
-let sigSrc = DispatchSource.makeSignalSource(signal: SIGTERM, queue: .main)
-sigSrc.setEventHandler {
+let timer = DispatchSource.makeTimerSource()
+timer.setEventHandler {
     threads.forEach { $0.cancel() }
     runningGroup.wait()
 
@@ -120,6 +123,8 @@ sigSrc.setEventHandler {
 
     exit(0)
 }
-sigSrc.resume()
+
+timer.schedule(wallDeadline: .now() + currentTime.timeIntervalSinceNow + totalDuration)
+timer.activate()
 
 dispatchMain()
