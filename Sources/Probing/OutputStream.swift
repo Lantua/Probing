@@ -1,7 +1,7 @@
 import Foundation
 
 public struct DataTrace {
-    var id: Tag, time: Date, size: Int
+    public var id: Int, time: Date, size: Int
 }
 
 public protocol DataTraceOutputStream {
