@@ -93,7 +93,7 @@ public class UDPClient {
         var logger = logger
 
         let socket = try Socket.create(family: .inet, type: .datagram, proto: .udp)
-        try socket.setReadTimeout(value: 1000)
+        try socket.setReadTimeout(value: 100)
         try socket.listen(on: port, maxBacklogSize: maxBacklogSize)
 
         let thread = Thread {
