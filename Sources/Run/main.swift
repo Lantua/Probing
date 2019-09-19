@@ -3,10 +3,10 @@ import Probing
 import Foundation
 import LNTCSVCoder
 
-guard CommandLine.arguments.indices.contains(4),
+guard (4...4).contains(CommandLine.arguments.count - 1),
     let id = Int(CommandLine.arguments[3]),
     let totalDuration = Double(CommandLine.arguments[4]) else {
-    print("<Command URL> <Output URL> <ID> <Duration>")
+    print("run <Command URL> <Output URL> <ID> <Duration>")
     exit(-1)
 }
 
@@ -70,24 +70,26 @@ let runningGroup = DispatchGroup()
 var threads: [Thread] = []
 
 do {
-    for (port, pattern) in command["127.0.0.1"] ?? [:] {
-        let packetSize = pattern.packetSize
-        let backlogSize = pattern.maxSize
-        let listeningPort = pattern.listeningPort ?? port
-        let logger = StatsDataTraceOutputStream(startTime: currentTime) { sizes, interval in
-            let (rate, cv) = computeRateCV(sizes: sizes, interval: interval)
-            queue.sync {
-                //print("RECV \(port)"); sizes.enumerated().forEach { print("\($0.offset), \($0.element)") }
-                stats[port, default: .init(name: name, port: port)].set(output: rate, cv: cv)
+    for spec in command.values {
+        for (port, pattern) in spec {
+            let packetSize = pattern.packetSize
+            let backlogSize = pattern.maxSize
+            let listeningPort = pattern.listeningPort ?? port
+            let logger = StatsDataTraceOutputStream(startTime: currentTime) { sizes, interval in
+                let (rate, cv) = computeRateCV(sizes: sizes, interval: interval)
+                queue.sync {
+                    //print("RECV \(port)"); sizes.enumerated().forEach { print("\($0.offset), \($0.element)") }
+                    stats[port, default: .init(name: name, port: port)].set(output: rate, cv: cv)
+                }
             }
-        }
 
-        do {
-            let thread = try UDPClient.listen(on: listeningPort, packetSize: packetSize, maxBacklogSize: backlogSize, group: runningGroup, logger: logger)
-            threads.append(thread)
-        } catch {
-            print("Could not open listening Client at port ", port, ": ", error)
-            continue
+            do {
+                let thread = try UDPClient.listen(on: listeningPort, packetSize: packetSize, maxBacklogSize: backlogSize, group: runningGroup, logger: logger)
+                threads.append(thread)
+            } catch {
+                print("Could not open listening Client at port ", port, ": ", error)
+                continue
+            }
         }
     }
 }

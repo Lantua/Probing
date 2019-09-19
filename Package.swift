@@ -26,6 +26,9 @@ let package = Package(
             name: "Run",
             dependencies: ["Probing", "Socket"]),
         .target(
+            name: "Forward",
+            dependencies: ["Probing", "Socket"]),
+        .target(
             name: "Generate",
             dependencies: ["Probing"]),
         ]
