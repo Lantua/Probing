@@ -2,131 +2,91 @@ import Socket
 import Probing
 import Foundation
 import LNTCSVCoder
+import SPMUtility
+import Basic
 
-guard (4...4).contains(CommandLine.arguments.count - 1),
-    let id = Int(CommandLine.arguments[3]),
-    let totalDuration = Double(CommandLine.arguments[4]) else {
-    print("run <Command URL> <Output URL> <ID> <Duration>")
+enum SendMode: String, StringEnumArgument, ArgumentKind {
+    static var completion: ShellCompletion = .none
+
+    case send, receive, forward, both
+}
+
+let parser = ArgumentParser(usage: "Probing Mechanism", overview: "Versatile Probing Mechanism for different structure")
+
+let modeParser = parser.add(option: "--mode", shortName: "-m", kind: SendMode.self, usage: "Run mode (send, receive, forward, both)")
+let plottingParser = parser.add(option: "--plot", shortName: "-p", kind: Bool.self, usage: "Specify the id of the argument")
+let durationArgument = parser.add(option: "--duration", shortName: "-t", kind: Int.self, usage: "Duration of the entire experiment")
+
+let commandURLParser = parser.add(positional: "Command File URL", kind: PathArgument.self, optional: false, usage: "JSON file for command")
+let outputURLParser = parser.add(positional: "Output File URL", kind: PathArgument.self, optional: false, usage: "Output files directory")
+let idParser = parser.add(positional: "Experimantation ID", kind: Int.self, optional: false, usage: "ID of the experiment")
+
+let result: ArgumentParser.Result
+do {
+    result = try parser.parse(.init(CommandLine.arguments.dropFirst()))
+} catch {
+    print(error)
     exit(-1)
 }
 
-let commandURL = URL(fileURLWithPath: CommandLine.arguments[1])
-let outputURL = URL(fileURLWithPath: CommandLine.arguments[2])
+guard let commandPath = result.get(commandURLParser)?.path,
+    let outputPath = result.get(outputURLParser)?.path.pathString,
+    let id = result.get(idParser) else {
+        let buffer = BufferedOutputByteStream()
+        parser.printUsage(on: buffer)
+        print(buffer.bytes)
 
-let baseName = commandURL.deletingPathExtension().lastPathComponent
-let name = baseName.withCString {
-    String(format: "%s-%03d", $0, id)
+        exit(-1)
 }
-
-extension FileHandle: TextOutputStream {
-    public func write(_ string: String) {
-        write(Data(string.utf8))
-    }
-}
-
-func computeRateCV(sizes: [Int], interval: Double) -> (rate: Double, cv: Double) {
-    var rate = 0.0, cv = 0.0
-
-    let rates = sizes.dropLast().map { Double($0) * 8 / interval }
-    guard !rates.isEmpty else {
-        return (0, 0)
-    }
-
-    let mean = rates.reduce(0, +) / Double(rates.count)
-    let variance = rates.map { ($0 - mean) * ($0 - mean) }.reduce(0, +) / Double(rates.count)
-
-    rate = mean
-    cv = sqrt(variance) / mean
-    return (rate, cv)
-}
-
-let encoder: CSVEncoder
-if FileManager.default.fileExists(atPath: outputURL.path) {
-    encoder = CSVEncoder(options: .omitHeader)
-} else {
-    FileManager.default.createFile(atPath: outputURL.path, contents: nil) 
-    encoder = CSVEncoder()
-}
-
-var stats: [Int: Stats] = [:]
-var output = try FileHandle(forWritingTo: outputURL), queue = DispatchQueue(label: "File Queue")
-output.seekToEndOfFile()
+let plotting = result.get(plottingParser) ?? false
+let mode = result.get(modeParser) ?? .both
+let duration = result.get(durationArgument) ?? 5
 
 let command: Command
-let currentTime = Date() + 0.5
 do {
-    let list = try JSONDecoder().decode([Command].self, from: NSData(contentsOf: commandURL) as Data)
+    let list = try JSONDecoder().decode([Command].self, from: NSData(contentsOfFile: commandPath.pathString)! as Data)
     guard list.indices ~= id else {
         print("id (\(id)) out of range (\(list.indices))")
         exit(-7)
     }
     command = list[id]
 } catch {
-    print("Invalid JSON file ", commandURL.absoluteString, ": ", error)
+    print("Invalid JSON file ", commandPath.basename, ": ", error)
     exit(-1)
 }
 
-let runningGroup = DispatchGroup()
-var threads: [Thread] = []
+let baseName: String = commandPath.basenameWithoutExt
+let xxxx: Int = id as Int
+let name = String(format: "%s-%03d", baseName, xxxx)
 
-do {
-    for spec in command.values {
-        for (port, pattern) in spec {
-            let packetSize = pattern.packetSize
-            let backlogSize = pattern.maxSize
-            let listeningPort = pattern.listeningPort ?? port
-            let logger = StatsDataTraceOutputStream(startTime: currentTime) { sizes, interval in
-                let (rate, cv) = computeRateCV(sizes: sizes, interval: interval)
-                queue.sync {
-                    //print("RECV \(port)"); sizes.enumerated().forEach { print("\($0.offset), \($0.element)") }
-                    stats[port, default: .init(name: name, port: port)].set(output: rate, cv: cv)
-                }
-            }
-
-            do {
-                let thread = try UDPClient.listen(on: listeningPort, packetSize: packetSize, maxBacklogSize: backlogSize, group: runningGroup, logger: logger)
-                threads.append(thread)
-            } catch {
-                print("Could not open listening Client at port ", port, ": ", error)
-                continue
-            }
-        }
-    }
+let runner = Runner(command: command, plotting: plotting, duration: Double(duration))
+switch mode {
+case .send:
+    try runner.send()
+case .receive:
+    try runner.receive()
+case .both:
+    try runner.receive()
+    try runner.send()
+case .forward:
+    fatalError("Unsupported mode")
 }
 
-let sender = try UDPClient()
-for (host, command) in command {
-    for (port, pattern) in command {
-        let packetSize = pattern.packetSize
-        let backlogSize = pattern.maxSize
-        let address = Socket.createAddress(for: host, on: Int32(port))!
+runner.runningGroup.wait()
 
-        let duration = (currentTime + pattern.startTime)..<(currentTime + (pattern.endTime ?? .infinity))
-        let logger = StatsDataTraceOutputStream(startTime: currentTime) { sizes, interval in
-            let (rate, cv) = computeRateCV(sizes: sizes, interval: interval)
-            queue.sync {
-                //print("SENT \(port)"); sizes.enumerated().forEach { print("\($0.offset), \($0.element)") }
-                stats[port, default: .init(name: name, port: port)].set(input: rate, cv: cv)
-            }
-        }
+let stats = runner.stats, encoder: CSVEncoder
+let values = stats.sorted(by: { $0.key < $1.key }).map { $0.value }
 
-        let thread = try sender.send(pattern: pattern.getSequence(), to: address, duration: duration, packetSize: packetSize, maxBacklogSize: backlogSize, group: runningGroup, logger: logger)
-        threads.append(thread)
-    }
+if FileManager.default.fileExists(atPath: outputPath) {
+    encoder = CSVEncoder(options: .omitHeader)
+} else {
+    FileManager.default.createFile(atPath: outputPath, contents: nil)
+    encoder = CSVEncoder()
 }
 
-let timer = DispatchSource.makeTimerSource()
-timer.setEventHandler {
-    threads.forEach { $0.cancel() }
-    runningGroup.wait()
-
-    let values = stats.sorted(by: { $0.key < $1.key }).map { $0.value }
-    try? encoder.encode(values, into: &output)
-
+guard var output = FileHandle(forWritingAtPath: outputPath) else {
+    print("Can't write to \(outputPath)")
     exit(0)
 }
-
-timer.schedule(wallDeadline: .now() + currentTime.timeIntervalSinceNow + totalDuration)
-timer.activate()
-
-dispatchMain()
+output.seekToEndOfFile()
+try? encoder.encode(values, into: &output)

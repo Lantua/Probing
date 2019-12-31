@@ -18,19 +18,15 @@ public class UDPClient {
         socket = try Socket.create(family: .inet, type: .datagram, proto: .udp)
     }
 
-    @available(OSX 10.12, *)
-    public func send<S>(pattern: S, to destination: Socket.Address, duration: Range<Date>, packetSize: Int, maxBacklogSize: Int, group: DispatchGroup, logger: DataTraceOutputStream?) -> Thread where S: Sequence, S.Element == CommandPattern.Element {
+    public func send<S>(pattern: S, to destination: Socket.Address, duration: Range<Date>, packetSize: Int, backlogSize: Int, group: DispatchGroup, logger: DataTraceOutputStream?) where S: Sequence, S.Element == CommandPattern.Element {
         let startTime = duration.lowerBound, endTime = duration.upperBound
         let payloadSize = max(packetSize - headerSize, MemoryLayout<Tag>.size)
         let packetSize = payloadSize + headerSize
 
-        let maxBlockCount = (maxBacklogSize + packetSize - 1) / packetSize
+        let maxBlockCount = (backlogSize + packetSize - 1) / packetSize
         let buffer = UnsafeMutablePointer<Tag>.allocate(capacity: maxBlockCount + payloadSize / MemoryLayout<Tag>.stride)
 
-        let thread = Thread { [socket = self.socket] in
-            group.enter()
-            defer { group.leave() }
-
+        DispatchQueue.global().async(group: group) { [socket] in
             defer { buffer.deallocate() }
 
             var tag: Tag = 0
@@ -47,9 +43,6 @@ public class UDPClient {
                 }
 
                 Thread.sleep(until: currentTime)
-                guard !Thread.current.isCancelled else {
-                    break
-                }
 
                 do {
                     for i in 0..<fullBlockCount {
@@ -84,8 +77,6 @@ public class UDPClient {
             logger?.write(.init(id: -1, time: Date(), size: 0))
             logger?.finalize()
         }
-        thread.start()
-        return thread
     }
 
     deinit {

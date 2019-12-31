@@ -18,14 +18,12 @@ let listenPorts: [Int] = CommandLine.arguments.dropFirst(2).map {
 }
 
 let runningGroup = DispatchGroup()
-var threads: [Thread] = []
 
 for port in listenPorts {
     let address = Socket.createAddress(for: host, on: Int32(port))!
 
     do {
-        let thread = try UDPClient.forward(to: address, on: port, packetSize: 5000, maxBacklogSize: 5000, group: runningGroup)
-        threads.append(thread)
+        try UDPClient.forward(to: address, on: port, until: .distantFuture, packetSize: 5000, backlogSize: 5000, group: runningGroup)
     } catch {
         print("Could not create forwarder at port ", port, ": ", error)
         continue

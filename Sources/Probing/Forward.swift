@@ -3,19 +3,15 @@ import Socket
 
 extension UDPClient {
     @available(OSX 10.12, *)
-    public static func forward(to destination: Socket.Address, on port: Int, packetSize: Int, maxBacklogSize: Int, group: DispatchGroup) throws -> Thread {
+    public static func forward(to destination: Socket.Address, on port: Int, until: Date, packetSize: Int, backlogSize: Int, group: DispatchGroup) throws {
         let socket = try Socket.create(family: .inet, type: .datagram, proto: .udp)
         try socket.setReadTimeout(value: 1000)
-        try socket.listen(on: port, maxBacklogSize: maxBacklogSize)
+        try socket.listen(on: port, maxBacklogSize: backlogSize)
 
-        let thread = Thread {
-            group.enter()
-            defer { group.leave() }
+        let buffer = UnsafeMutableRawPointer.allocate(byteCount: packetSize, alignment: 1)
 
-            let buffer = UnsafeMutableRawPointer.allocate(byteCount: packetSize, alignment: 1)
-            defer {
-                buffer.deallocate()
-            }
+        DispatchQueue.global().async(group: group) {
+            defer { buffer.deallocate() }
 
             while true {
                 let size: Int
@@ -26,7 +22,7 @@ extension UDPClient {
                     continue
                 }
 
-                guard !Thread.current.isCancelled else {
+                guard until.timeIntervalSinceNow >= 0 else {
                     break
                 }
                 guard size > 0 else {
@@ -41,7 +37,5 @@ extension UDPClient {
                 }
             }
         }
-        thread.start()
-        return thread
     }
 }

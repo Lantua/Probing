@@ -10,22 +10,81 @@ import Probing
 
 typealias Command = [String: [Int: SendPattern]]
 
-struct SendPattern: Codable {
-    enum PatternType: String, Codable {
-        case cbr, poisson, file
+struct SendPattern {
+    enum PatternType {
+        case cbr(rate: Double, packetSize: Int)
+        case poisson(rate: Double, packetSize: Int)
     }
-    var type: PatternType
-    var rate: Double?, url: URL?
-    var packetSize, maxSize: Int
-    var startTime: TimeInterval, endTime: TimeInterval?
+    var startTime: TimeInterval, endTime: TimeInterval
+    var pattern: PatternType
 
-    var listeningPort: Int?
+    var maxPacketSize: Int {
+        switch pattern {
+        case let .cbr(_, packetSize),
+             let .poisson(_, packetSize):
+            return packetSize
+        }
+    }
+
+    var maxBurstSize: Int {
+        switch pattern {
+        case let .cbr(_, packetSize),
+             let .poisson(_, packetSize):
+            return packetSize
+        }
+    }
 
     func getSequence() throws -> AnySequence<CommandPattern.Element> {
-        switch type {
-        case .cbr: return AnySequence(CommandPattern.cbr(rate: rate! / 8, size: maxSize))
-        case .poisson: return AnySequence(CommandPattern.poisson(rate: rate! / 8, size: maxSize))
-        case .file: return try AnySequence(CommandPattern.custom(url: url!))
+        switch pattern {
+        case let .cbr(rate, packetSize): return AnySequence(CommandPattern.cbr(rate: rate / 8, size: packetSize))
+        case let .poisson(rate, packetSize): return AnySequence(CommandPattern.poisson(rate: rate / 8, size: packetSize))
+        }
+    }
+}
+
+extension SendPattern: Codable {
+    private enum CodingKeys: CodingKey {
+        case type, rate, url, packetSize, startTime, endTime
+    }
+    private enum TypeName: String, Codable {
+        case cbr, poisson
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+
+        startTime = try container.decode(Double.self, forKey: .startTime)
+        endTime = try container.decodeIfPresent(Double.self, forKey: .endTime) ?? .infinity
+
+        switch try container.decode(TypeName.self, forKey: .type) {
+        case .cbr:
+            let rate = try container.decode(Double.self, forKey: .rate)
+            let packetSize = try container.decode(Int.self, forKey: .packetSize)
+            pattern = .cbr(rate: rate, packetSize: packetSize)
+        case .poisson:
+            let rate = try container.decode(Double.self, forKey: .rate)
+            let packetSize = try container.decode(Int.self, forKey: .packetSize)
+            pattern = .poisson(rate: rate, packetSize: packetSize)
+        }
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+
+        try container.encode(startTime, forKey: .startTime)
+        if endTime.isFinite {
+            try container.encode(endTime, forKey: .endTime)
+        }
+
+        switch pattern {
+        case let .cbr(rate, packetSize):
+            try container.encode(TypeName.cbr, forKey: .type)
+            try container.encode(rate, forKey: .rate)
+            try container.encode(packetSize, forKey: .packetSize)
+        case let .poisson(rate, packetSize):
+            try container.encode(TypeName.poisson, forKey: .type)
+            try container.encode(rate, forKey: .rate)
+            try container.encode(packetSize, forKey: .packetSize)
         }
     }
 }
