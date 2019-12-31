@@ -13,13 +13,13 @@ enum SendMode: String, StringEnumArgument, ArgumentKind {
 
 let parser = ArgumentParser(usage: "Probing Mechanism", overview: "Versatile Probing Mechanism for different structure")
 
-let modeParser = parser.add(option: "--mode", shortName: "-m", kind: SendMode.self, usage: "Run mode (send, receive, forward, both)")
+let modeParser = parser.add(option: "--mode", shortName: "-m", kind: SendMode.self, usage: "Run mode [send, receive, forward, both (default)]")
 let plottingParser = parser.add(option: "--plot", shortName: "-p", kind: Bool.self, usage: "Specify the id of the argument")
-let durationArgument = parser.add(option: "--duration", shortName: "-t", kind: Int.self, usage: "Duration of the entire experiment")
 
-let commandURLParser = parser.add(positional: "Command File URL", kind: PathArgument.self, optional: false, usage: "JSON file for command")
-let outputURLParser = parser.add(positional: "Output File URL", kind: PathArgument.self, optional: false, usage: "Output files directory")
+let commandURLParser = parser.add(positional: "Command File", kind: PathArgument.self, optional: false, usage: "JSON file for command")
+let outputURLParser = parser.add(positional: "Output File", kind: PathArgument.self, optional: false, usage: "Output files directory")
 let idParser = parser.add(positional: "Experimantation ID", kind: Int.self, optional: false, usage: "ID of the experiment")
+let durationArgument = parser.add(positional: "Duration", kind: Int.self, optional: false, usage: "Duration of the experiment")
 
 let result: ArgumentParser.Result
 do {
@@ -31,7 +31,8 @@ do {
 
 guard let commandPath = result.get(commandURLParser)?.path,
     let outputPath = result.get(outputURLParser)?.path.pathString,
-    let id = result.get(idParser) else {
+    let id = result.get(idParser),
+    let duration = result.get(durationArgument) else {
         let buffer = BufferedOutputByteStream()
         parser.printUsage(on: buffer)
         print(buffer.bytes)
@@ -40,7 +41,6 @@ guard let commandPath = result.get(commandURLParser)?.path,
 }
 let plotting = result.get(plottingParser) ?? false
 let mode = result.get(modeParser) ?? .both
-let duration = result.get(durationArgument) ?? 5
 
 let command: Command
 do {
@@ -57,7 +57,7 @@ do {
 
 let baseName: String = commandPath.basenameWithoutExt
 let xxxx: Int = id as Int
-let name = String(format: "%s-%03d", baseName, xxxx)
+let name = "\(baseName)-\(String(format: "%03d", xxxx))"
 
 let runner = Runner(command: command, plotting: plotting, duration: Double(duration))
 switch mode {
