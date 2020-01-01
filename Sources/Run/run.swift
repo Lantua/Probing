@@ -35,15 +35,16 @@ class Runner {
     let queue = DispatchQueue(label: "Runner"), runningGroup = DispatchGroup()
     var stats: [Int: Stats] = [:]
 
-    init(command: Command, plotting: Bool, duration: Double) {
+    let sender: UDPClient
+
+    init(command: Command, plotting: Bool, duration: Double) throws {
         self.command = command
         self.plotting = plotting
+        self.sender = try UDPClient()
         endTime = startTime + duration
     }
 
     func send() throws {
-        let sender = try UDPClient()
-
         for (host, command) in command {
             for (port, pattern) in command {
                 let packetSize = pattern.maxPacketSize, backlogSize = pattern.maxBurstSize

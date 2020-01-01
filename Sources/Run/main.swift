@@ -59,7 +59,7 @@ let baseName: String = commandPath.basenameWithoutExt
 let xxxx: Int = id as Int
 let name = "\(baseName)-\(String(format: "%03d", xxxx))"
 
-let runner = Runner(command: command, plotting: plotting, duration: Double(duration))
+let runner = try Runner(command: command, plotting: plotting, duration: Double(duration))
 switch mode {
 case .send:
     try runner.send()
