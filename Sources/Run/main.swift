@@ -14,10 +14,10 @@ enum SendMode: String, StringEnumArgument, ArgumentKind {
 let parser = ArgumentParser(usage: "Probing Mechanism", overview: "Versatile Probing Mechanism for different structure")
 
 let modeParser = parser.add(option: "--mode", shortName: "-m", kind: SendMode.self, usage: "Run mode [send, receive, forward, both (default)]")
-let plottingParser = parser.add(option: "--plot", shortName: "-p", kind: Bool.self, usage: "Specify the id of the argument")
+let plottingParser = parser.add(option: "--plot", shortName: "-p", kind: PathArgument.self, usage: "Specify the path used for plotting")
+let summarizeParser = parser.add(option: "--summarize", shortName: "-s", kind: PathArgument.self, usage: "Specify the path used for summary")
 
 let commandURLParser = parser.add(positional: "Command File", kind: PathArgument.self, optional: false, usage: "JSON file for command")
-let outputURLParser = parser.add(positional: "Output File", kind: PathArgument.self, optional: false, usage: "Output files directory")
 let idParser = parser.add(positional: "Experimantation ID", kind: Int.self, optional: false, usage: "ID of the experiment")
 let durationArgument = parser.add(positional: "Duration", kind: Int.self, optional: false, usage: "Duration of the experiment")
 
@@ -30,7 +30,6 @@ do {
 }
 
 guard let commandPath = result.get(commandURLParser)?.path,
-    let outputPath = result.get(outputURLParser)?.path.pathString,
     let id = result.get(idParser),
     let duration = result.get(durationArgument) else {
         let buffer = BufferedOutputByteStream()
@@ -39,7 +38,9 @@ guard let commandPath = result.get(commandURLParser)?.path,
 
         exit(-1)
 }
-let plotting = result.get(plottingParser) ?? false
+let plottingPath = result.get(plottingParser)?.path
+let summaryPath = result.get(summarizeParser)?.path
+
 let mode = result.get(modeParser) ?? .both
 
 let command: Command
@@ -59,7 +60,7 @@ let baseName: String = commandPath.basenameWithoutExt
 let xxxx: Int = id as Int
 let name = "\(baseName)-\(String(format: "%03d", xxxx))"
 
-let runner = try Runner(command: command, plotting: plotting, duration: Double(duration))
+let runner = try Runner(command: command, plotting: plottingPath != nil, summarizing: summaryPath != nil, duration: Double(duration))
 switch mode {
 case .send:
     try runner.send()
@@ -77,16 +78,41 @@ runner.runningGroup.wait()
 let stats = runner.stats, encoder: CSVEncoder
 let values = stats.sorted(by: { $0.key < $1.key }).map { $0.value }
 
-if FileManager.default.fileExists(atPath: outputPath) {
-    encoder = CSVEncoder(options: .omitHeader)
-} else {
-    FileManager.default.createFile(atPath: outputPath, contents: nil)
-    encoder = CSVEncoder()
+if let path = summaryPath?.pathString {
+    if FileManager.default.fileExists(atPath: path) {
+        encoder = CSVEncoder(options: .omitHeader)
+    } else {
+        FileManager.default.createFile(atPath: path, contents: nil)
+        encoder = CSVEncoder()
+    }
+
+    guard var output = FileHandle(forWritingAtPath: path) else {
+        fatalError("Can't write to \(path)")
+    }
+    output.seekToEndOfFile()
+    try? encoder.encode(values, into: &output)
 }
 
-guard var output = FileHandle(forWritingAtPath: outputPath) else {
-    print("Can't write to \(outputPath)")
-    exit(0)
+if let url = plottingPath?.asURL {
+    var isDirectory: ObjCBool = false
+    if !FileManager.default.fileExists(atPath: url.path, isDirectory: &isDirectory) {
+        try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true, attributes: nil)
+    } else if !isDirectory.boolValue {
+        fatalError("Plotting path is not a directory")
+    }
+
+    for (key, (sizes, interval)) in runner.sendingPlots {
+        var path = try FileHandle(forWritingTo: url.appendingPathComponent("\(key)").appendingPathExtension("in"))
+        let data = sizes.enumerated().map { offset, size in
+            PlotPoint(id: offset, time: interval * TimeInterval(offset), rate: Double(size * 8) / interval)
+        }
+        try CSVEncoder().encode(data, into: &path)
+    }
+    for (key, (sizes, interval)) in runner.receivingPlots {
+        var path = try FileHandle(forWritingTo: url.appendingPathComponent("\(key)").appendingPathExtension("in"))
+        let data = sizes.enumerated().map { offset, size in
+            PlotPoint(id: offset, time: interval * TimeInterval(offset), rate: Double(size * 8) / interval)
+        }
+        try CSVEncoder().encode(data, into: &path)
+    }
 }
-output.seekToEndOfFile()
-try? encoder.encode(values, into: &output)

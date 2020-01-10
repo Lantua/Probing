@@ -109,3 +109,7 @@ struct Stats: Codable {
         self.outputCV = cv
     }
 }
+
+struct PlotPoint: Codable {
+    var id: Int, time: TimeInterval, rate: Double
+}

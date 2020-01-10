@@ -34,16 +34,19 @@ private func computeRateCV(sizes: [Int], interval: Double) -> (rate: Double, cv:
 
 class Runner {
     let startTime = Date() + 0.5, endTime: Date
-    let command: Command, plotting: Bool
+    let command: Command, plotting, summarizing: Bool
 
     let queue = DispatchQueue(label: "Runner"), runningGroup = DispatchGroup()
     var stats: [Int: Stats] = [:]
+    var sendingPlots: [Int: (sizes: [Int], interval: TimeInterval)] = [:]
+    var receivingPlots: [Int: (sizes: [Int], interval: TimeInterval)] = [:]
 
     let sender: UDPClient
 
-    init(command: Command, plotting: Bool, duration: Double) throws {
+    init(command: Command, plotting: Bool, summarizing: Bool, duration: Double) throws {
         self.command = command
         self.plotting = plotting
+        self.summarizing = summarizing
         self.sender = try UDPClient()
         endTime = startTime + duration
     }
@@ -86,7 +89,7 @@ class Runner {
 
     private func processSendingLog(port: Int, sizes: [Int], interval: TimeInterval) {
         if plotting {
-            fatalError("Unsupported function: Plotting")
+            sendingPlots[port] = (sizes, interval)
         } else {
             let (rate, cv) = computeRateCV(sizes: sizes, interval: interval)
             queue.sync {
@@ -98,7 +101,7 @@ class Runner {
 
     private func processReceivingLog(port: Int, sizes: [Int], interval: TimeInterval) {
         if plotting {
-            fatalError("Unsupported function: Plotting")
+            receivingPlots[port] = (sizes, interval)
         } else {
             let (rate, cv) = computeRateCV(sizes: sizes, interval: interval)
             queue.sync {
