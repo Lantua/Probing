@@ -8,7 +8,7 @@
 import Foundation
 import Probing
 
-typealias Command = [String: [Int: SendPattern]]
+typealias Command = [String: [Int: [SendPattern]]]
 
 struct SendPattern {
     enum PatternType {
@@ -36,8 +36,8 @@ struct SendPattern {
 
     func getSequence() throws -> AnySequence<CommandPattern.Element> {
         switch pattern {
-        case let .cbr(rate, packetSize): return AnySequence(CommandPattern.cbr(rate: rate / 8, size: packetSize))
-        case let .poisson(rate, packetSize): return AnySequence(CommandPattern.poisson(rate: rate / 8, size: packetSize))
+        case let .cbr(rate, packetSize): return AnySequence(CommandPattern.cbr(rate: rate / 8, size: packetSize, start: startTime, end: endTime))
+        case let .poisson(rate, packetSize): return CommandPattern.poisson(rate: rate / 8, size: packetSize, start: startTime, end: endTime)
         }
     }
 }

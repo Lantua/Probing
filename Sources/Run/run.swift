@@ -16,6 +16,10 @@ extension FileHandle: TextOutputStream {
     }
 }
 
+enum RunnerError: Error {
+    case UnsupportedPacketSize
+}
+
 private func computeRateCV(sizes: [Int], interval: Double) -> (rate: Double, cv: Double) {
     let rates = sizes.dropLast().map { Double($0) * 8 / interval }
     guard !rates.isEmpty else {
@@ -46,22 +50,33 @@ class Runner {
 
     func send() throws {
         for (host, command) in command {
-            for (port, pattern) in command {
-                let packetSize = pattern.maxPacketSize, backlogSize = pattern.maxBurstSize
+            for (port, patterns) in command where !patterns.isEmpty {
                 let address = Socket.createAddress(for: host, on: Int32(port))!
-
-                let duration = ((startTime + pattern.startTime)..<(startTime + pattern.endTime)).clamped(to: startTime..<endTime)
                 let logger = StatsDataTraceOutputStream(startTime: startTime) { self.processSendingLog(port: port, sizes: $0, interval: $1) }
+                var packetSize = patterns.first!.maxPacketSize, backlogSize = 0
 
-                try sender.send(pattern: pattern.getSequence(), to: address, duration: duration, packetSize: packetSize, backlogSize: backlogSize, group: runningGroup, logger: logger)
+                let sequences = try patterns.map { pattern -> AnySequence<CommandPattern.Element> in
+                    guard packetSize == pattern.maxPacketSize else {
+                        throw RunnerError.UnsupportedPacketSize
+                    }
+
+                    backlogSize += pattern.maxBurstSize
+                    return try pattern.getSequence()
+                }
+
+                sender.send(pattern: CommandPattern.merge(commands: sequences), to: address, startTime: startTime, packetSize: packetSize, backlogSize: backlogSize, group: runningGroup, logger: logger)
             }
         }
     }
 
     func receive() throws {
         for spec in command.values {
-            for (port, pattern) in spec {
-                let packetSize = pattern.maxPacketSize, backlogSize = pattern.maxBurstSize
+            for (port, patterns) in spec {
+                var packetSize = 0, backlogSize = 0
+                for pattern in patterns {
+                    packetSize = max(packetSize, pattern.maxPacketSize)
+                    backlogSize += pattern.maxBurstSize
+                }
                 let logger = StatsDataTraceOutputStream(startTime: startTime) { self.processReceivingLog(port: port, sizes: $0, interval: $1) }
 
                 try UDPClient.listen(on: port, until: endTime, packetSize: packetSize, backlogSize: backlogSize, group: runningGroup, logger: logger)

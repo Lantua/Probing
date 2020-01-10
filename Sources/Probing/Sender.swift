@@ -18,8 +18,7 @@ public class UDPClient {
         socket = try Socket.create(family: .inet, type: .datagram, proto: .udp)
     }
 
-    public func send<S>(pattern: S, to destination: Socket.Address, duration: Range<Date>, packetSize: Int, backlogSize: Int, group: DispatchGroup, logger: DataTraceOutputStream?) where S: Sequence, S.Element == CommandPattern.Element {
-        let startTime = duration.lowerBound, endTime = duration.upperBound
+    public func send<S>(pattern: S, to destination: Socket.Address, startTime: Date, packetSize: Int, backlogSize: Int, group: DispatchGroup, logger: DataTraceOutputStream?) where S: Sequence, S.Element == CommandPattern.Element {
         let payloadSize = max(packetSize - headerSize, MemoryLayout<Tag>.size)
         let packetSize = payloadSize + headerSize
 
@@ -33,9 +32,6 @@ public class UDPClient {
 
             for (offset, size) in pattern {
                 let currentTime = startTime + offset
-                guard currentTime < endTime else {
-                    break
-                }
 
                 let fullBlockCount = size / packetSize, residual = size % packetSize
                 for i in 0...fullBlockCount {
