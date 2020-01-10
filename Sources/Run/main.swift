@@ -102,17 +102,21 @@ if let url = plottingPath?.asURL {
     }
 
     for (key, (sizes, interval)) in runner.sendingPlots {
-        var path = try FileHandle(forWritingTo: url.appendingPathComponent("\(key)").appendingPathExtension("in"))
-        let data = sizes.enumerated().map { offset, size in
+        let path = url.appendingPathComponent("\(key)").appendingPathExtension("in").path
+        let entries = sizes.enumerated().map { offset, size in
             PlotPoint(id: offset, time: interval * TimeInterval(offset), rate: Double(size * 8) / interval)
         }
-        try CSVEncoder().encode(data, into: &path)
+        let data = try CSVEncoder().encode(entries).data(using: .ascii)!
+
+        FileManager.default.createFile(atPath: path, contents: data, attributes: nil)
     }
     for (key, (sizes, interval)) in runner.receivingPlots {
-        var path = try FileHandle(forWritingTo: url.appendingPathComponent("\(key)").appendingPathExtension("in"))
-        let data = sizes.enumerated().map { offset, size in
+        let path = url.appendingPathComponent("\(key)").appendingPathExtension("out").path
+        let entries = sizes.enumerated().map { offset, size in
             PlotPoint(id: offset, time: interval * TimeInterval(offset), rate: Double(size * 8) / interval)
         }
-        try CSVEncoder().encode(data, into: &path)
+        let data = try CSVEncoder().encode(entries).data(using: .ascii)!
+
+        FileManager.default.createFile(atPath: path, contents: data, attributes: nil)
     }
 }
