@@ -33,7 +33,7 @@ private func computeRateCV(sizes: [Int], interval: Double) -> (rate: Double, cv:
 }
 
 class Runner {
-    let startTime = Date() + 0.5, endTime: Date
+    let startTime = Date() + 0.5, duration: TimeInterval
     let command: Command, plotting, summarizing: Bool
 
     let queue = DispatchQueue(label: "Runner"), runningGroup = DispatchGroup()
@@ -43,12 +43,12 @@ class Runner {
 
     let sender: UDPClient
 
-    init(command: Command, plotting: Bool, summarizing: Bool, duration: Double) throws {
+    init(command: Command, plotting: Bool, summarizing: Bool, duration: TimeInterval) throws {
         self.command = command
         self.plotting = plotting
         self.summarizing = summarizing
         self.sender = try UDPClient()
-        endTime = startTime + duration
+        self.duration = duration
     }
 
     func send() throws {
@@ -67,7 +67,7 @@ class Runner {
                     return try pattern.getSequence()
                 }
 
-                sender.send(pattern: CommandPattern.merge(commands: sequences), to: address, startTime: startTime, packetSize: packetSize, backlogSize: backlogSize, group: runningGroup, logger: logger)
+                sender.send(pattern: CommandPattern.merge(commands: sequences, until: duration), to: address, startTime: startTime, packetSize: packetSize, backlogSize: backlogSize, group: runningGroup, logger: logger)
             }
         }
     }
@@ -82,7 +82,7 @@ class Runner {
                 }
                 let logger = StatsDataTraceOutputStream(startTime: startTime) { self.processReceivingLog(port: port, sizes: $0, interval: $1) }
 
-                try UDPClient.listen(on: port, until: endTime, packetSize: packetSize, backlogSize: backlogSize, group: runningGroup, logger: logger)
+                try UDPClient.listen(on: port, until: startTime + duration, packetSize: packetSize, backlogSize: backlogSize, group: runningGroup, logger: logger)
             }
         }
     }

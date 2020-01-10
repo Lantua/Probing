@@ -25,9 +25,9 @@ public struct CommandPattern {
         return stride(from: start, to: end, by: interval).lazy.map { ($0, size) }
     }
 
-    public static func merge(commands: [AnySequence<Element>]) -> AnySequence<Element> {
+    public static func merge(commands: [AnySequence<Element>], until end: TimeInterval) -> AnySequence<Element> {
         return AnySequence {
-            MergedIterator(iterators: commands.map { $0.makeIterator() })
+            MergedIterator(iterators: commands.map { $0.makeIterator() }, until: end)
         }
     }
 }
@@ -53,8 +53,9 @@ private struct MergedIterator: IteratorProtocol {
     public typealias Element = CommandPattern.Element
 
     private var iterators: [(current: Element, iterator: AnyIterator<Element>)], time: TimeInterval
+    private let end: TimeInterval
 
-    init(iterators: [AnyIterator<Element>]) {
+    init(iterators: [AnyIterator<Element>], until: TimeInterval) {
         self.iterators = iterators.compactMap { iterator in
             guard let current = iterator.next() else {
                 return nil
@@ -62,6 +63,7 @@ private struct MergedIterator: IteratorProtocol {
             return (current, iterator)
         }
         time = self.iterators.reduce(.infinity) { min($0, $1.current.time) }
+        end = until
     }
 
     public mutating func next() -> Element? {
@@ -89,6 +91,11 @@ private struct MergedIterator: IteratorProtocol {
         }
 
         time = nextTime
+
+        if time >= end {
+            iterators = []
+        }
+
         return (currentTime, size)
     }
 }
