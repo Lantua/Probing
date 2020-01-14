@@ -87,6 +87,7 @@ private struct MergedIterator: IteratorProtocol {
                 nextTime = min(next.time, nextTime)
                 return (next, iterator)
             }
+            nextTime = min(current.time, nextTime)
             return arg
         }
 

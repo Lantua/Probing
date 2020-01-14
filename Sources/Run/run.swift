@@ -89,7 +89,9 @@ class Runner {
 
     private func processSendingLog(port: Int, sizes: [Int], interval: TimeInterval) {
         if plotting {
-            sendingPlots[port] = (sizes, interval)
+            queue.sync {
+                sendingPlots[port] = (sizes, interval)
+            }
         } else {
             let (rate, cv) = computeRateCV(sizes: sizes, interval: interval)
             queue.sync {
@@ -101,7 +103,9 @@ class Runner {
 
     private func processReceivingLog(port: Int, sizes: [Int], interval: TimeInterval) {
         if plotting {
-            receivingPlots[port] = (sizes, interval)
+            queue.sync {
+                receivingPlots[port] = (sizes, interval)
+            }
         } else {
             let (rate, cv) = computeRateCV(sizes: sizes, interval: interval)
             queue.sync {
