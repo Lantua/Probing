@@ -11,7 +11,7 @@ struct Forward: ParsableCommand {
     func run() throws {
         let runningGroup = DispatchGroup()
 
-        for port in listenPorts {
+        for port in listeningPorts {
             let address = Socket.createAddress(for: host, on: Int32(port))!
 
             do {
