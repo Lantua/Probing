@@ -14,13 +14,13 @@ enum SendMode: String, ExpressibleByArgument {
 }
 
 struct Run: ParsableCommand {
-    @Argument(transform: URL.init(fileURLWithPath:)) var commandURL: URL
-    @Argument() var experimentationID: Int
-    @Argument() var duration: Double
-
     @Option(default: SendMode.both) var mode: SendMode
     @Option(name: .customLong("plot"), transform: URL.init(fileURLWithPath:)) var plottingPath: URL?
     @Option(name: .customLong("summary-path"), transform: URL.init(fileURLWithPath:)) var summaryPath: URL?
+
+    @Argument(transform: URL.init(fileURLWithPath:)) var commandURL: URL
+    @Argument() var experimentationID: Int
+    @Argument() var duration: Double
 
     func run() throws {
         let command: Command
