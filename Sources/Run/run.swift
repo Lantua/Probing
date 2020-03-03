@@ -40,15 +40,17 @@ class Runner {
     var stats: [Int: Stats] = [:]
     var sendingPlots: [Int: (sizes: [Int], interval: TimeInterval)] = [:]
     var receivingPlots: [Int: (sizes: [Int], interval: TimeInterval)] = [:]
+    var name: String
 
     let sender: UDPClient
 
-    init(command: Command, plotting: Bool, summarizing: Bool, duration: TimeInterval) throws {
+    init(command: Command, plotting: Bool, summarizing: Bool, duration: TimeInterval, name: String) throws {
         self.command = command
         self.plotting = plotting
         self.summarizing = summarizing
         self.sender = try UDPClient()
         self.duration = duration
+        self.name = name
     }
 
     func send() throws {
