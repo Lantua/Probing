@@ -1,4 +1,4 @@
-// swift-tools-version:5.0
+// swift-tools-version:5.1
 // The swift-tools-version declares the minimum version of Swift required to build this package.
 
 import PackageDescription
@@ -10,7 +10,6 @@ let package = Package(
     ],
     products: [
         .library(name: "Probing", targets: ["Probing"]),
-        .executable(name: "Forward", targets: ["Forward"]),
         .executable(name: "Run", targets: ["Run"]),
     ],
     dependencies: [
@@ -28,9 +27,6 @@ let package = Package(
             dependencies: ["Socket", "LNTCSVCoder"]),
         .target(
             name: "Run",
-            dependencies: ["Probing", "Socket", "ArgumentParser"]),
-        .target(
-            name: "Forward",
             dependencies: ["Probing", "Socket", "ArgumentParser"]),
         ]
 )

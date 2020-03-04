@@ -34,7 +34,7 @@ struct SendPattern {
         }
     }
 
-    func getSequence() throws -> AnySequence<CommandPattern.Element> {
+    func getSequence() -> AnySequence<CommandPattern.Element> {
         switch pattern {
         case let .cbr(rate, packetSize): return AnySequence(CommandPattern.cbr(rate: rate / 8, size: packetSize, start: startTime, end: endTime))
         case let .poisson(rate, packetSize): return CommandPattern.poisson(rate: rate / 8, size: packetSize, start: startTime, end: endTime)
@@ -90,23 +90,18 @@ extension SendPattern: Codable {
 }
 
 struct Stats: Codable {
-    var name: String, port: Int, inputCV, outputCV, input, output: Double?
+    var name: String, port: Int
+    var inputCV, outputCV, input, output: Double?
+}
 
-    init(name: String, port: Int) {
-        self.name = name
-        self.port = port
+func +=(lhs: inout Stats, rhs: Stats) {
+    if let input = rhs.input {
+        lhs.input = input
+        lhs.inputCV = rhs.inputCV
     }
-
-    mutating func set(input: Double, cv: Double) {
-        assert(self.input == nil)
-        self.input = input
-        self.inputCV = cv
-    }
-
-    mutating func set(output: Double, cv: Double) {
-        assert(self.output == nil)
-        self.output = output
-        self.outputCV = cv
+    if let output = rhs.output {
+        lhs.output = output
+        lhs.outputCV = rhs.outputCV
     }
 }
 

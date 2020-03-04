@@ -25,5 +25,3 @@ struct Forward: ParsableCommand {
         runningGroup.wait()
     }
 }
-
-Forward.main()
