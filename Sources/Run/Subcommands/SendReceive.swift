@@ -56,7 +56,7 @@ final class Runner {
     init(argument: RunnerArgument) throws {
         command = try Command(argument: argument.experimentSpec)
         summary = Summary(argument.summary, commandURL: argument.experimentSpec.commandURL)
-        plot = try Plot(argument: argument.plot, commandURL: argument.experimentSpec.commandURL)
+        plot = try Plot(argument: argument.plot, commandURL: argument.experimentSpec.commandURL, experimentationID: argument.experimentSpec.experimentationID)
         duration = argument.duration
     }
 

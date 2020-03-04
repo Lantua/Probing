@@ -12,12 +12,12 @@ import ArgumentParser
 struct Plot {
     let url: URL
 
-    init?(argument: PlotArgument, commandURL: URL) throws {
+    init?(argument: PlotArgument, commandURL: URL, experimentationID: Int) throws {
         guard argument.plot || argument.plottingPath != nil else {
             return nil
         }
 
-        url = argument.plottingPath ?? commandURL.deletingPathExtension()
+        url = argument.plottingPath ?? commandURL.deletingPathExtension().appendingPathComponent("\(experimentationID)")
 
         var isDirectory: ObjCBool = false
         if FileManager.default.fileExists(atPath: url.path, isDirectory: &isDirectory) {

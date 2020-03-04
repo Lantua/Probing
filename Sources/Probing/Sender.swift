@@ -74,9 +74,5 @@ public class UDPClient {
             logger?.finalize()
         }
     }
-
-    deinit {
-        socket.close()
-    }
 }
 
