@@ -8,16 +8,23 @@
 import Foundation
 import ArgumentParser
 
-struct RunnerArgument: ParsableArguments {
-    @OptionGroup() var plot: PlotArgument
-    @OptionGroup() var summary: SummaryArgument
-    @OptionGroup() var experimentSpec: CommandArgument
-    @Argument() var duration: Double
-}
-
-struct CommandArgument: ParsableArguments {
+struct CommandArguments: ParsableArguments {
     @Argument(transform: URL.init(fileURLWithPath:)) var commandURL: URL
     @Argument() var experimentationID: Int
+    @Argument() var duration: Double
+
+    @Option(default: 1000) var packetSize: Int
+
+    @Undecoded var command: Command
+
+    mutating func validate() throws {
+        let list = try JSONDecoder().decode([Command].self, from: Data(contentsOf: commandURL))
+        guard list.indices ~= experimentationID else {
+            print("id (\(experimentationID)) out of range (\(list.indices))")
+            throw RunError.idOutOfRange
+        }
+        command = list[experimentationID]
+    }
 
     var name: String {
         let baseName = commandURL.deletingPathExtension().lastPathComponent
@@ -25,12 +32,3 @@ struct CommandArgument: ParsableArguments {
     }
 }
 
-struct PlotArgument: ParsableArguments {
-    @Flag() var plot: Bool
-    @Option(transform: URL.init(fileURLWithPath:)) var plottingPath: URL?
-}
-
-struct SummaryArgument: ParsableArguments {
-    @Flag(name: .customLong("summarize")) var summarizing: Bool
-    @Option(transform: URL.init(fileURLWithPath:)) var summaryPath: URL?
-}

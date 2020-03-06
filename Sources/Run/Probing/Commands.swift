@@ -1,18 +1,8 @@
 import Foundation
 import LNTCSVCoder
 
-typealias Tag = Int
-
-public struct CommandPattern {
+public enum CommandPattern {
     public typealias Element = (time: TimeInterval, size: Int)
-
-    public static func custom(url: URL) throws -> Array<Element> {
-        struct Row: Codable {
-            var time: TimeInterval, size: Int
-        }
-        let string = try String(contentsOf: url)
-        return try CSVDecoder().decode(Row.self, from: string).map { ($0.time, $0.size) }
-    }
 
     public static func poisson(rate: Double, size: Int, start: TimeInterval, end: TimeInterval) -> AnySequence<Element> {
         return AnySequence {
@@ -26,6 +16,9 @@ public struct CommandPattern {
     }
 
     public static func merge(commands: [AnySequence<Element>], until end: TimeInterval) -> AnySequence<Element> {
+        if commands.count == 1 {
+            return commands.first!
+        }
         return AnySequence {
             MergedIterator(iterators: commands.map { $0.makeIterator() }, until: end)
         }
@@ -72,28 +65,24 @@ private struct MergedIterator: IteratorProtocol {
         }
 
         let currentTime = time
+        var size = 0
 
-        var nextTime = TimeInterval.infinity, size = 0
-        defer { time = nextTime }
-
-        iterators = iterators.compactMap { arg in
-            let (current, iterator) = arg
-            if current.time == time {
+        iterators = iterators.compactMap {
+            let (current, iterator) = $0
+            if current.time == currentTime {
                 size += current.size
 
                 guard let next = iterator.next() else {
                     return nil
                 }
-                nextTime = min(next.time, nextTime)
                 return (next, iterator)
             }
-            nextTime = min(current.time, nextTime)
-            return arg
+            return $0
         }
 
-        time = nextTime
-
-        if time >= end {
+        if let nextTime = iterators.lazy.map({ $0.current.time }).min(), nextTime < end {
+            time = nextTime
+        } else {
             iterators = []
         }
 

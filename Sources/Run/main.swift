@@ -1,12 +1,11 @@
 import Socket
-import Probing
 import Foundation
 import LNTCSVCoder
 
 import ArgumentParser
 
 enum RunError: Error {
-    case idOutOfRange, invalidPlottingPath
+    case idOutOfRange
 }
 
 struct Run: ParsableCommand {
