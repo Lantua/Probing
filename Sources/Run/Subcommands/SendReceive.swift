@@ -10,12 +10,11 @@ import Socket
 import ArgumentParser
 
 struct SendReceive: ParsableCommand {
-    @OptionGroup() var outputArguments: OutputArguments
     @OptionGroup() var commandArguments: CommandArguments
 
     func run() throws {
-        let send = Send(outputArguments: _outputArguments, commandArguments: _commandArguments)
-        let receive = Receive(outputArguments: _outputArguments, commandArguments: _commandArguments)
+        let send = Send(commandArguments: _commandArguments)
+        let receive = Receive(commandArguments: _commandArguments)
 
         let group = DispatchGroup()
 

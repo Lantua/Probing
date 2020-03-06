@@ -3,23 +3,22 @@ import Socket
 import ArgumentParser
 
 struct Receive: ParsableCommand {
-    @OptionGroup() var outputArguments: OutputArguments
     @OptionGroup() var commandArguments: CommandArguments
 
     func run() throws {
-        guard outputArguments.plottingPath != nil else {
+        guard commandArguments.plottingPath != nil else {
             return
         }
 
         let startTime = Date(), runningGroup = DispatchGroup()
-        let duration = commandArguments.duration, packetSize = commandArguments.packetSize
+        let duration = commandArguments.duration!, packetSize = commandArguments.packetSize
 
         for spec in commandArguments.command.values {
             for (port, patterns) in spec where !patterns.isEmpty {
                 let backlogSize = patterns.lazy.map { $0.burstSize }.reduce(0, +)
                 let logger = StatsDataTraceOutputStream(startTime: startTime) { sizes, interval in
                     DispatchQueue.global(qos: .background).async(group: runningGroup) {
-                        self.outputArguments.register(port: port, interval: interval, sizes: sizes, isInput: false)
+                        self.commandArguments.register(port: port, interval: interval, sizes: sizes, isInput: false)
                     }
                 }
 

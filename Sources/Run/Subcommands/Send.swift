@@ -13,13 +13,12 @@ import ArgumentParser
 let headerSize = 42
 
 struct Send: ParsableCommand {
-    @OptionGroup() var outputArguments: OutputArguments
     @OptionGroup() var commandArguments: CommandArguments
 
     func run() throws {
         let socket = try Socket.create(family: .inet, type: .datagram, proto: .udp)
         let startTime = Date(), runningGroup = DispatchGroup()
-        let duration = commandArguments.duration, packetSize = commandArguments.packetSize
+        let duration = commandArguments.duration!, packetSize = commandArguments.packetSize
 
         for (host, command) in commandArguments.command {
             for (port, patterns) in command where !patterns.isEmpty {
@@ -28,7 +27,7 @@ struct Send: ParsableCommand {
                 let commands = CommandPattern.merge(commands: sequences, until: duration)
                 let logger = StatsDataTraceOutputStream(startTime: startTime) { sizes, interval in
                     DispatchQueue.global(qos: .background).async(group: runningGroup) {
-                        self.outputArguments.register(port: port, interval: interval, sizes: sizes, isInput: true)
+                        self.commandArguments.register(port: port, interval: interval, sizes: sizes, isInput: true)
                     }
                 }
 

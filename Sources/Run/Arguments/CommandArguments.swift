@@ -1,5 +1,5 @@
 //
-//  Outputs.swift
+//  CommandArguments.swift
 //  
 //
 //  Created by Natchanon Luangsomboon on 3/3/2563 BE.
@@ -9,13 +9,32 @@ import Foundation
 import LNTCSVCoder
 import ArgumentParser
 
-struct OutputArguments: ParsableArguments {
+struct CommandArguments: ParsableArguments {
+    @Option() var duration: Double?
+    @Option(default: 1000) var packetSize: Int
+
     @Flag(name: .shortAndLong) var plot: Bool
     @Option(name: [.customShort("P"), .long], transform: URL.init(fileURLWithPath:)) var plottingPath: URL?
 
-    mutating func set(commandURL: URL, id: Int) {
+    @Argument(transform: URL.init(fileURLWithPath:)) var commandURL: URL
+    @Argument() var experimentationID: Int
+
+    @Undecoded var command: Command
+
+    mutating func validate() throws {
+        let list = try JSONDecoder().decode([Command].self, from: Data(contentsOf: commandURL))
+        guard list.indices ~= experimentationID else {
+            print("id (\(experimentationID)) out of range (\(list.indices))")
+            throw RunError.idOutOfRange
+        }
+        command = list[experimentationID]
+
+        if duration == nil {
+            duration = command.values.compactMap { $0.values.compactMap { $0.map { $0.endTime }.max() }.max() }.max()
+        }
+
         if plot && plottingPath == nil {
-            plottingPath = commandURL.deletingPathExtension().appendingPathComponent("\(id)")
+            plottingPath = commandURL.deletingPathExtension().appendingPathComponent("\(experimentationID)")
         }
     }
 
