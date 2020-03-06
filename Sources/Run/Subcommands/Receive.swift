@@ -45,18 +45,12 @@ private func listen(on port: Int, until: Date, packetSize: Int, backlogSize: Int
     defer { buffer.deallocate() }
     
     while true {
-        let size: Int
-        do {
-            size = try socket.readDatagram(into: buffer.assumingMemoryBound(to: CChar.self), bufSize: packetSize).bytesRead + headerSize
-        } catch {
-            print("Error receiving data: ", error)
-            continue
-        }
+        let size = try socket.readDatagram(into: buffer.assumingMemoryBound(to: CChar.self), bufSize: packetSize).bytesRead + headerSize
         
         guard until.timeIntervalSinceNow >= 0 else {
             break
         }
-        guard size >= headerSize else {
+        guard size > headerSize else {
             // Timeout
             continue
         }

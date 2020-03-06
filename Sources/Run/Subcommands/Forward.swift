@@ -36,13 +36,7 @@ private func forward(to destination: Socket.Address, on port: Int, until: Date, 
     defer { buffer.deallocate() }
 
     while true {
-        let size: Int
-        do {
-            size = try socket.readDatagram(into: buffer.assumingMemoryBound(to: CChar.self), bufSize: packetSize).bytesRead
-        } catch {
-            print("Error receiving data: ", error)
-            continue
-        }
+        let size = try socket.readDatagram(into: buffer.assumingMemoryBound(to: CChar.self), bufSize: packetSize).bytesRead
 
         guard until.timeIntervalSinceNow >= 0 else {
             break
@@ -52,11 +46,6 @@ private func forward(to destination: Socket.Address, on port: Int, until: Date, 
             continue
         }
 
-        do {
-            try socket.write(from: buffer, bufSize: size, to: destination)
-        } catch {
-            print("Error sending data: ", error)
-            continue
-        }
+        try socket.write(from: buffer, bufSize: size, to: destination)
     }
 }
