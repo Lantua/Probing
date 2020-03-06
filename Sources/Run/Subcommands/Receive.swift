@@ -6,7 +6,7 @@ struct Receive: ParsableCommand {
     @OptionGroup() var commandArguments: CommandArguments
 
     func run() throws {
-        guard commandArguments.plottingPath != nil else {
+        guard commandArguments.plottingURL != nil else {
             return
         }
 

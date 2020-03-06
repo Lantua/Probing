@@ -10,6 +10,7 @@ let package = Package(
     ],
     products: [
         .executable(name: "Run", targets: ["Run"]),
+        .executable(name: "Compile", targets: ["Compile"]),
     ],
     dependencies: [
         // Dependencies declare other packages that this package depends on.
@@ -23,6 +24,12 @@ let package = Package(
         // Targets can depend on other targets in this package, and on products in packages which this package depends on.
         .target(
             name: "Run",
-            dependencies: ["Socket", "LNTCSVCoder", "ArgumentParser"]),
+            dependencies: ["LNTProbeCoding", "LNTCSVCoder", "ArgumentParser", "Socket"]),
+        .target(
+            name: "Compile",
+            dependencies: ["LNTProbeCoding", "LNTCSVCoder", "ArgumentParser"]),
+        .target(
+            name: "LNTProbeCoding",
+            dependencies: []),
         ]
 )

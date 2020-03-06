@@ -77,7 +77,3 @@ extension SendPattern: Codable {
         }
     }
 }
-
-struct PlotPoint: Codable {
-    var time: TimeInterval, rate: Double
-}

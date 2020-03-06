@@ -9,12 +9,14 @@ import Foundation
 import LNTCSVCoder
 import ArgumentParser
 
+import ProbeCoding
+
 struct CommandArguments: ParsableArguments {
     @Option() var duration: Double?
     @Option(default: 1000) var packetSize: Int
 
     @Flag(name: .shortAndLong) var plot: Bool
-    @Option(name: [.customShort("P"), .long], transform: URL.init(fileURLWithPath:)) var plottingPath: URL?
+    @Option(name: [.customShort("P"), .customLong("plotting-path")], transform: URL.init(fileURLWithPath:)) var plottingURL: URL?
 
     @Argument(transform: URL.init(fileURLWithPath:)) var commandURL: URL
     @Argument() var experimentationID: Int
@@ -33,20 +35,20 @@ struct CommandArguments: ParsableArguments {
             duration = command.values.compactMap { $0.values.compactMap { $0.map { $0.endTime }.max() }.max() }.max()
         }
 
-        if plot && plottingPath == nil {
-            plottingPath = commandURL.deletingPathExtension().appendingPathComponent("\(experimentationID)")
+        if plot && plottingURL == nil {
+            plottingURL = commandURL.deletingPathExtension().appendingPathComponent("\(experimentationID)")
         }
 
-        if let plottingPath = plottingPath {
+        if let plottingPath = plottingURL {
             try? FileManager.default.createDirectory(at: plottingPath, withIntermediateDirectories: true)
         }
     }
 
     func register(port: Int, interval: TimeInterval, sizes: [Int], isInput: Bool) {
-        if let url = plottingPath {
+        if let url = plottingURL {
             let path = url.appendingPathComponent("\(port)").appendingPathExtension(isInput ? "in" : "out").path
             let entries = sizes.enumerated().map { offset, size in
-                PlotPoint(time: interval * TimeInterval(offset), rate: Double(size * 8) / interval)
+                TraceRow(time: interval * TimeInterval(offset), rate: Double(size * 8) / interval)
             }
             let data = try! CSVEncoder().encode(entries).data(using: .ascii)!
 
