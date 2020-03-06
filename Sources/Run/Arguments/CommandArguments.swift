@@ -36,6 +36,10 @@ struct CommandArguments: ParsableArguments {
         if plot && plottingPath == nil {
             plottingPath = commandURL.deletingPathExtension().appendingPathComponent("\(experimentationID)")
         }
+
+        if let plottingPath = plottingPath {
+            try? FileManager.default.createDirectory(at: plottingPath, withIntermediateDirectories: true)
+        }
     }
 
     func register(port: Int, interval: TimeInterval, sizes: [Int], isInput: Bool) {
