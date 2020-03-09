@@ -9,7 +9,7 @@ import Foundation
 import LNTCSVCoder
 import ArgumentParser
 
-import ProbeCoding
+import LNTProbeCoding
 
 struct CommandArguments: ParsableArguments {
     @Option() var duration: Double?

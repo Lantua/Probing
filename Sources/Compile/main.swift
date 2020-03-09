@@ -2,7 +2,7 @@ import Foundation
 import LNTCSVCoder
 import ArgumentParser
 
-import ProbeCoding
+import LNTProbeCoding
 
 struct Main: ParsableCommand {
     @Argument(transform: URL.init(fileURLWithPath:)) var folderURLs: [URL]
